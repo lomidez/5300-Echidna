@@ -1,3 +1,13 @@
+/*
+    File: main.cpp
+    Author: Lisa Lomidze
+    Date: January 15, 2024
+    Description: Main program file for the SQL interpreter. 
+    Initializes Berkeley DB environment, takes user input for SQL statements, 
+    parses and prints the statements using the SQLprinting class. Allows the user 
+    to interactively input SQL statements until the user enters "quit".
+*/
+
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,3 +1,12 @@
+/*
+    File: SQLprinting.cpp
+    Author: Lisa Lomidze
+    Date: January 15, 2024
+    Description: Implementation file for the SQLprinting class. 
+    Defines member functions for printing information about 
+    SQL statements. Also includes helper functions for 
+    printing expressions, table references, and column definitions.
+*/
 
 #include <iostream>
 #include <stdio.h>

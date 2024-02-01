@@ -84,7 +84,7 @@ This will remove the main executable and object files.
     |   heap_storage.cpp
     │   SQLprinting.h
     │   storage_engine.h
-    │   heap_storage.cpp
+    │   heap_storage.h
 ```
 
 

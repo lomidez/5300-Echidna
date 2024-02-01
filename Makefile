@@ -5,20 +5,23 @@ LDFLAGS = -L/usr/local/db6/lib
 LIBS = -ldb_cxx -lsqlparser
 
 # Source files
-SRCS = src/main.cpp src/SQLprinting.cpp
+SRCS = src/main.cpp src/SQLprinting.cpp src/heap_storage.cpp
+
+# Header files
+HEADERS = src/SQLprinting.h src/storage_engine.h src/heap_storage.h
 
 # Object files
 OBJS = $(SRCS:.cpp=.o)
 
 # Executable name
-EXEC = my_program
+EXEC = main
 
 # Rule to build executable
 $(EXEC): $(OBJS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 # Rule to build object files
-%.o: %.cpp
+%.o: %.cpp $(HEADERS)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 # Clean rule

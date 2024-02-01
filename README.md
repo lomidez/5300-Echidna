@@ -40,7 +40,7 @@ Replace <dbenvpath> with the path to the BerkeleyDB database environment. For ex
 ./main ~/cpsc5300/data
 ```
 
-### 1.Interacting with SQL
+### Interacting with SQL
 Enter SQL statements interactively:
 ```bash
 SQL> <your_sql_statement>
@@ -55,7 +55,7 @@ To exit the program, enter:
 SQL> quit
 ```
 
-### 2.Testing Heap Storage Functionality
+### Testing Heap Storage Functionality
 To test the functionality of heap storage, enter:
 
 ```bash
@@ -90,5 +90,4 @@ This will remove the main executable and object files.
 
 
 # Authors
-Kevin Lundeen
-Lisa Lomidze
+Kevin Lundeen, Lisa Lomidze

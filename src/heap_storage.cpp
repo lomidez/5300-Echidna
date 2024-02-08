@@ -7,7 +7,6 @@
  */
 
 #include "heap_storage.h"
-#include "storage_engine.h"
 #include <cstring>
 
 typedef u_int16_t u16;
@@ -77,7 +76,7 @@ void SlottedPage::put(RecordID record_id, const Dbt &data)
 		{
 			throw DbBlockNoRoomError("Not enough room in block"); 
 		}	
-		this->slide(loc + new_size, loc + size);
+		this->slide(loc, loc - extra);
         memcpy(this->address(loc - extra), data.get_data(), new_size);
 	}
 	else
@@ -108,11 +107,7 @@ RecordIDs *SlottedPage::ids()
 		get_header(size, loc, i);
 		if (loc != 0)
 		{
-			(*recs).push_back(i);
-		}
-		else
-		{
-			continue;
+			recs->push_back(i);
 		}
 	}
 	return recs;
@@ -152,7 +147,10 @@ void SlottedPage::slide(u_int16_t start, u_int16_t end)
 	}
 
 	//slide data
-	memcpy(address(this->end_free + 1 + shift), address(this->end_free + 1), shift);
+    void *to = this->address(this->end_free + 1 + shift);
+    void *from = this->address(this->end_free + 1);
+    int bytes = start - (this->end_free + 1);
+    memmove(to, from, bytes);
 
 	//fixup headers
 	RecordIDs *all_recs = this->ids();
@@ -199,7 +197,7 @@ void HeapFile::create(void)
 {
 	db_open(DB_CREATE | DB_EXCL);
 	SlottedPage* new_block = this->get_new();
-	put(new_block);
+    delete new_block;
 }
 
 void HeapFile::drop(void)
@@ -212,7 +210,6 @@ void HeapFile::drop(void)
 void HeapFile::open(void)
 {
 	db_open();
-	this->closed = false;
 }
 
 void HeapFile::close(void)
@@ -257,7 +254,7 @@ BlockIDs *HeapFile::block_ids()
 	BlockIDs* bl_ids = new BlockIDs();
 	for (u16 i = 1; i <= this->last; i++) 
 	{
-		(*bl_ids).push_back(i);
+		bl_ids->push_back(i);
 	}
 	return bl_ids;
 }
@@ -270,11 +267,15 @@ void HeapFile::db_open(uint flags)
 	}
 	this->db.set_re_len(DbBlock::BLOCK_SZ);
     db.open(NULL, (this->name + ".db").c_str(), NULL, DB_RECNO, flags, 0644);
-    DB_BTREE_STAT *stat;
-    this->db.stat(nullptr, &stat, DB_FAST_STAT);
-    auto count = stat->bt_ndata;
-    this->last = count;
-    this->closed = false;
+	if (flags == 0) {
+			DB_BTREE_STAT *stat;
+			this->db.stat(nullptr, &stat, DB_FAST_STAT);
+			this->last = stat->bt_ndata;
+			free(stat);
+		} else {
+			this->last = 0;
+		}
+		this->closed = false;
 }
 
 
@@ -324,20 +325,27 @@ void HeapTable::close()
 Handle HeapTable::insert(const ValueDict *row)
 {
 	this->open();
-    return append(validate(row));
-}
+    ValueDict *full_row = validate(row);
+    Handle handle = append(full_row);
+    delete full_row;
+    return handle;}
 
 void HeapTable::update(const Handle handle, const ValueDict *new_values) //not milestone2
 {
-	throw std::runtime_error("Function not yet implemented");
+    throw DbRelationError("Not implemented");
 }
 
 void HeapTable::del(const Handle handle) //not milestone2
 {	
-	throw std::runtime_error("Function not yet implemented");
+    throw DbRelationError("Not implemented");
 }
 
-Handles *HeapTable::select()
+Handles *HeapTable::select() {
+    ValueDict empty;
+    return select(&empty);
+}
+
+Handles *HeapTable::select(const ValueDict *where) //not milestone2
 {
     Handles* handles = new Handles();
     BlockIDs* block_ids = file.block_ids();
@@ -353,38 +361,29 @@ Handles *HeapTable::select()
     return handles;
 }
 
-Handles *HeapTable::select(const ValueDict *where) //not milestone2
-{
-	throw std::runtime_error("Function not yet implemented");
-}
-
 //map<Identifier, Value> ValueDict
 //Return a sequence of values for handle given by column_names.
 ValueDict *HeapTable::project(Handle handle)
 {
-  	BlockID block_id = handle.first; //handle first - BlockID, sec - RecordID
-	RecordID record_id = handle.second;
-	SlottedPage *block = this->file.get(block_id); 
-  	Dbt *data = block->get(record_id);
-  	ValueDict *row = unmarshal(data);
-  	return row;
+    return project(handle, &this->column_names);
 }
 
 ValueDict *HeapTable::project(Handle handle, const ColumnNames *column_names) //not milestone2
 {
-  	BlockID block_id = handle.first; //handle first - BlockID, sec - RecordID
-	RecordID record_id = handle.second;
-	SlottedPage *block = this->file.get(block_id); 
-  	Dbt *data = block->get(record_id);
-  	ValueDict *row = unmarshal(data);
-  	if (column_names == nullptr)
-  	{
-  		return row;
-  	}
-  	else
-  	{
-  		throw std::runtime_error("Function not yet implemented");
-  	}
+    BlockID block_id = handle.first;
+    RecordID record_id = handle.second;
+    SlottedPage *block = file.get(block_id);
+    Dbt *data = block->get(record_id);
+    ValueDict *row = unmarshal(data);
+    delete data;
+    delete block;
+    if (column_names->empty())
+        return row;
+    ValueDict *result = new ValueDict();
+    for (auto const &column_name: *column_names)
+        (*result)[column_name] = (*row)[column_name];
+    delete row;
+    return result;
 }
 
 ValueDict *HeapTable::validate(const ValueDict *row)

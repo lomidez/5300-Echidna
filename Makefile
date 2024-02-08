@@ -1,29 +1,37 @@
-# Compiler and flags
-CXX = g++
-CXXFLAGS = -I/usr/local/db6/include -DHAVE_CXX_STDHEADERS -D_GNU_SOURCE -D_REENTRANT -O3 -std=c++11
-LDFLAGS = -L/usr/local/db6/lib
-LIBS = -ldb_cxx -lsqlparser
+# Adapted from Kevin Lundeen's Makefile, Seattle University
 
-# Source files
-SRCS = src/main.cpp src/SQLprinting.cpp src/heap_storage.cpp
+CCFLAGS     = -std=c++11 -Wall -Wno-c++11-compat -DHAVE_CXX_STDHEADERS -D_GNU_SOURCE -D_REENTRANT -O3 -c -ggdb
+COURSE      = /usr/local/db6
+INCLUDE_DIR = $(COURSE)/include
+LIB_DIR     = $(COURSE)/lib
 
-# Header files
-HEADERS = src/SQLprinting.h src/storage_engine.h src/heap_storage.h
+# Adjust paths for source files located in src/ directory
+OBJS        = src/sql5300.o src/SlottedPage.o src/HeapFile.o src/HeapTable.o src/ParseTreeToString.o src/SQLExec.o src/schema_tables.o src/storage_engine.o
 
-# Object files
-OBJS = $(SRCS:.cpp=.o)
+# Executable name adjusted to match project requirement
+EXEC        = sql5300
 
-# Executable name
-EXEC = main
-
-# Rule to build executable
+# Rule for linking to create the executable
 $(EXEC): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+	g++ -L$(LIB_DIR) -o $@ $(OBJS) -ldb_cxx -lsqlparser
 
-# Rule to build object files
-%.o: %.cpp $(HEADERS)
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+# Header file dependencies adjusted for src/ directory structure
+HEAP_STORAGE_H = src/heap_storage.h src/SlottedPage.h src/HeapFile.h src/HeapTable.h src/storage_engine.h
+SCHEMA_TABLES_H = src/schema_tables.h $(HEAP_STORAGE_H)
+SQLEXEC_H = src/SQLExec.h $(SCHEMA_TABLES_H)
+src/ParseTreeToString.o : src/ParseTreeToString.h
+src/SQLExec.o : $(SQLEXEC_H)
+src/SlottedPage.o : src/SlottedPage.h
+src/HeapFile.o : src/HeapFile.h src/SlottedPage.h
+src/HeapTable.o : $(HEAP_STORAGE_H)
+src/schema_tables.o : $(SCHEMA_TABLES_H) src/ParseTreeToString.h
+src/sql5300.o : $(SQLEXEC_H) src/ParseTreeToString.h
+src/storage_engine.o : src/storage_engine.h
 
-# Clean rule
+# General rule for compilation with source files in src/
+%.o: %.cpp
+	g++ -I$(INCLUDE_DIR) $(CCFLAGS) -o "$@" "$<"
+
+# Rule for cleaning all non-source files
 clean:
 	rm -f $(EXEC) $(OBJS)

@@ -8,17 +8,13 @@
     to interactively input SQL statements until the user enters "quit". Allows to test 
     functionality of heap storage if user enters "test".
 */
+#include <cstdlib>
 #include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <cstring>
 #include <string>
-#include <cassert>
 #include "db_cxx.h"
 #include "SQLParser.h"
-#include "SQLprinting.h"
-#include "heap_storage.h"
-
+#include "ParseTreeToString.h"
+#include "SQLExec.h"
 
 using namespace std;
 using namespace hsql;
@@ -27,58 +23,6 @@ using namespace hsql;
  * we allocate and initialize the _DB_ENV global
  */
 DbEnv *_DB_ENV;
-
-/**
- * Tests the functionality of heap storage.
- * @returns     true if all tests pass; otherwise, false.
- */
-bool test_heap_storage() {
-    std::cout << "I'm in test_heap_storage function" <<"\n";
-    ColumnNames column_names;
-    column_names.push_back("a");
-    column_names.push_back("b");
-    ColumnAttributes column_attributes;
-    ColumnAttribute ca(ColumnAttribute::INT);
-    column_attributes.push_back(ca);
-    ca.set_data_type(ColumnAttribute::TEXT);
-    column_attributes.push_back(ca);
-
-    HeapTable table1("_test_create_drop_cpp", column_names, column_attributes);
-    table1.create();
-    std::cout << "create ok" << std::endl;
-    table1.drop();  // drop makes the object unusable because of BerkeleyDB restriction -- maybe want to fix this some day
-    std::cout << "drop ok" << std::endl;
-
-    HeapTable table("_test_data_cpp", column_names, column_attributes);
-    table.create_if_not_exists();
-    std::cout << "create_if_not_exsts ok" << std::endl;
-
-    ValueDict row;
-    row["a"] = Value(12);
-    row["b"] = Value("Hello!");
-
-    std::cout << "try insert" << std::endl;
-    table.insert(&row);
-    std::cout << "insert ok" << std::endl;
-
-    Handles* handles = table.select();
-    std::cout << "select ok " << handles->size() << std::endl;
-
-    ValueDict *result = table.project((*handles)[0]);
-    std::cout << "project ok" << std::endl;
-
-
-    Value value = (*result)["a"];
-    if (value.n != 12)
-        return false;
-    value = (*result)["b"];
-    if (value.s != "Hello!")
-        return false;
-
-    table.drop();
-
-    return true;
-}
 
 /**
  * Main entry point of the sql5300 program
@@ -125,20 +69,28 @@ int main(int argc, char *argv[]) {
         }
 
         // use the Hyrise sql parser to get us our AST
-        SQLParserResult *result = SQLParser::parseSQLString(query);
-        if (!result->isValid()) {
+        SQLParserResult *parse = SQLParser::parseSQLString(query);
+        if (!parse->isValid()) {
             cout << "invalid SQL: " << query << endl;
-            delete result;
+            cout << parse->errorMsg() << endl;
+            delete parse;
             continue;
         }
 
 
         // execute the statement
-        for (uint i = 0; i < result->size(); ++i) {
-            SQLprinting sqlprinting;
-            sqlprinting.printingStatement(result->getStatement(i));
+        for (uint i = 0; i < parse->size(); ++i) {
+            const SQLStatement *statement = parse->getStatement(i);
+            try {
+                cout << ParseTreeToString::statement(statement) << endl;
+                QueryResult *result = SQLExec::execute(statement);
+                cout << *result << endl;
+                delete result;
+            } catch (SQLExecError &e) {
+                cout << "Error: " << e.what() << endl;
+            }
         }
-        delete result;
+        delete parse;
 
     }
 

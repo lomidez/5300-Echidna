@@ -51,6 +51,8 @@ int main(int argc, char *argv[]) {
 
     _DB_ENV = &env;
 
+    initialize_schema_tables();
+    
     while (true) 
     {
         cout << "SQL> ";

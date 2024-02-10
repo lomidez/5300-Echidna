@@ -5,17 +5,17 @@ COURSE      = /usr/local/db6
 INCLUDE_DIR = $(COURSE)/include
 LIB_DIR     = $(COURSE)/lib
 
-# Adjust paths for source files located in src/ directory
+# Paths for source files located in src/ directory
 OBJS        = src/sql5300.o src/SlottedPage.o src/HeapFile.o src/HeapTable.o src/ParseTreeToString.o src/SQLExec.o src/schema_tables.o src/storage_engine.o
 
-# Executable name adjusted to match project requirement
+# Executable name 
 EXEC        = sql5300
 
 # Rule for linking to create the executable
 $(EXEC): $(OBJS)
 	g++ -L$(LIB_DIR) -o $@ $(OBJS) -ldb_cxx -lsqlparser
 
-# Header file dependencies adjusted for src/ directory structure
+# Header file dependencies 
 HEAP_STORAGE_H = src/heap_storage.h src/SlottedPage.h src/HeapFile.h src/HeapTable.h src/storage_engine.h
 SCHEMA_TABLES_H = src/schema_tables.h $(HEAP_STORAGE_H)
 SQLEXEC_H = src/SQLExec.h $(SCHEMA_TABLES_H)

@@ -104,6 +104,7 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
     ValueDict row;
     row["table_name"] = table_name;
     Handle table_handle;
+    string message = "created " + table_name;
     try {
         table_handle = tables->insert(&row); 
         DbRelation *table = &tables->get_table(table_name);
@@ -112,8 +113,7 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
         Handles column_handles;
         try {
             for (uint i = 0; i < column_names.size(); i++) {
-                row["column_name"] = column_names.at(i);
-                // row["data_type"] = column_attr.at(i) == ColumnAttribute::INT? Value("INT") : Value("TEXT");
+                row["column_name"] = column_names[i];
                 row["data_type"] = Value(column_attr[i].get_data_type() == ColumnAttribute::INT ? "INT" : "TEXT");
                 Handle curr_col_handle = col_table.insert(&row);
                 column_handles.push_back(curr_col_handle);
@@ -123,19 +123,16 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
             } else {
                 table->create();
             }
-        } catch(...) {
-            //rollback columns
-            try {
-                for (auto const &handle: column_handles)
-                    col_table.del(handle);
-            } catch (...) {
-                throw;
-            }
+        } catch(DbRelationError &e) {
+            tables->del(table_handle);
+            for (auto const &handle: column_handles)
+                col_table.del(handle);
+            throw;
         }
-    } catch (...) {
-        tables->del(table_handle);
+    } catch (DbRelationError &e) {
+        message = string("Failed to create table: ") + e.what();
     }
-    return new QueryResult("created " + table_name);
+    return new QueryResult(message);
 }
 
 // DROP ...
@@ -155,7 +152,23 @@ QueryResult *SQLExec::show(const ShowStatement *statement) {
 }
 
 QueryResult *SQLExec::show_tables() {
-   return new QueryResult("not implemented"); // FIXME
+    ColumnNames *column_names = new ColumnNames;
+    ValueDicts *rows = new ValueDicts();
+
+    Handles *handles = tables->select(); 
+    for (const Handle &handle: *handles) {
+        ValueDict* row = tables->project(handle, column_names);
+        Identifier table_name = row->at("table_name").s;
+        if (table_name!= Tables::TABLE_NAME
+         && table_name!=Columns::TABLE_NAME) {
+            rows->push_back(row);
+        }
+    }
+    ColumnAttributes *column_attributes = new ColumnAttributes();
+    tables->get_columns(Tables::TABLE_NAME, *column_names, *column_attributes);
+
+    delete handles;
+    return new QueryResult(column_names, column_attributes, rows, "successfully returned " + to_string(rows->size()) + " rows");
 }
 
 QueryResult *SQLExec::show_columns(const ShowStatement *statement) {

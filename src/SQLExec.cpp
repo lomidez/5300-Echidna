@@ -137,7 +137,48 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
 
 // DROP ...
 QueryResult *SQLExec::drop(const DropStatement *statement) {
-    return new QueryResult("not implemented"); // FIXME
+    if (statement->type != DropStatement::kTable) {
+        throw SQLExecError("unrecognized DROP type");
+    }
+
+    // Get table name and check if it's a schema table
+    Identifier table_name = statement->name;
+    if (table_name == Tables::TABLE_NAME || table_name == Columns::TABLE_NAME) {
+        throw SQLExecError("Cannot drop a schema table!");
+    }
+
+    // Delete entries from _columns
+    ValueDict where = {{"table_name", Value(table_name)}};
+    DbRelation& columns = tables->get_table(Columns::TABLE_NAME);
+    Handles* rows = columns.select(&where);
+    try {
+        for (Handle& row : *rows) {
+            columns.del(row);
+        }
+        delete rows;
+
+        // Drop the actual table
+        DbRelation& table = tables->get_table(table_name);
+        table.drop();
+
+        // Remove entry from _tables
+        rows = tables->select(&where);
+        tables->del(*rows->begin());
+        delete rows;
+
+        return new QueryResult(string("dropped ") + table_name);
+    } catch (DbRelationError& e) {
+        // Rollback changes if anything fails
+        for (Handle& row : *rows) {
+            try {
+                ValueDict* rowData = columns.project(row, static_cast<const ColumnNames*>(nullptr));
+                columns.insert(rowData); // Undo deletion from _columns
+                delete rowData; // Free the allocated memory
+            } catch (DbRelationError&) {}
+        }
+        delete rows;
+        throw; // Re-throw the original error
+    }
 }
 
 QueryResult *SQLExec::show(const ShowStatement *statement) {

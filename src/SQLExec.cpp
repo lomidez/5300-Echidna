@@ -213,7 +213,28 @@ QueryResult *SQLExec::show_tables() {
 }
 
 QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
-    return new QueryResult("not implemented"); // FIXME
+    ColumnNames* column_names = new ColumnNames({"table_name", "column_name", "data_type"});
+    ColumnAttributes* column_attributes = new ColumnAttributes({ColumnAttribute(ColumnAttribute::DataType::TEXT)});
+
+    // Check if specific table is requested
+    if (statement->tableName != nullptr) {
+        ValueDict where = {{"table_name", Value(statement->tableName)}};
+        DbRelation& columns = tables->get_table(Columns::TABLE_NAME);
+        Handles* rows = columns.select(&where);
+        ValueDicts* data = new ValueDicts();
+        for (Handle& row : *rows) {
+            data->push_back(columns.project(row, column_names));
+        }
+        delete rows;
+        return new QueryResult(column_names, column_attributes, data, "successfully returned " + to_string(data->size()) + " rows");
+    } else {
+        // If no table specified, retrieve all columns
+        Handles* rows = tables->select();
+        ValueDicts* data = new ValueDicts();
+        for (Handle& row : *rows) {
+            data->push_back(tables->project(row, column_names));
+        }
+        delete rows;
+        return new QueryResult(column_names, column_attributes, data, "successfully returned " + to_string(data->size()) + " rows");
+    }
 }
-
-

@@ -10,6 +10,7 @@ using namespace hsql;
 
 // define static data
 Tables *SQLExec::tables = nullptr;
+Indices *SQLExec::indices = nullptr;
 
 // make query result be printable
 ostream &operator<<(ostream &out, const QueryResult &qres)
@@ -73,6 +74,11 @@ QueryResult *SQLExec::execute(const SQLStatement *statement)
         tables = new Tables();
     }
 
+    if (SQLExec::indices == nullptr)
+    {
+        SQLExec::indices = new Indices();
+    }
+
     try
     {
         switch (statement->type())
@@ -111,6 +117,19 @@ void SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_
 }
 
 QueryResult *SQLExec::create(const CreateStatement *statement)
+{
+    switch (statement->type)
+    {
+    case CreateStatement::CreateType::kTable:
+        return create_table(statement);
+    case CreateStatement::CreateType::kIndex:
+        return create_index(statement);
+    default:
+        return new QueryResult("not implemented");
+    }
+}
+
+QueryResult *SQLExec::create_table(const CreateStatement *statement)
 {
     // get column attributes after conversion from hsql definition to col attribute
     ColumnNames column_names;
@@ -168,6 +187,64 @@ QueryResult *SQLExec::create(const CreateStatement *statement)
         message = string("Failed to create table: ") + e.what();
     }
     return new QueryResult(message);
+}
+
+QueryResult *SQLExec::create_index(const CreateStatement *statement)
+{
+    Identifier table_name = statement->tableName;
+    Identifier index_name = statement->indexName;
+    Identifier index_type = statement->indexType;
+    bool is_unique = index_type == "BTREE" ? true : false;
+
+    ColumnNames *table_column_names = new ColumnNames();
+    ColumnAttributes *table_column_attributes = new ColumnAttributes();
+    tables->get_columns(table_name, *table_column_names, *table_column_attributes);
+    delete table_column_attributes; // we don't need the column attributes
+
+    // Validate that the referenced columns exist in the underlying table
+    for (const auto &col_name : *statement->indexColumns)
+    {
+        auto it = std::find(table_column_names->begin(), table_column_names->end(), col_name);
+        if (it == table_column_names->end())
+        {
+            throw SQLExecError(string("Column ") + col_name + string(" doesn't exist in ") + table_name );
+        }
+    }
+
+    int seq_in_index = 1; // start counter for the index columns
+    Handles index_handles;
+    ValueDict row;
+    // these are constant for all the referenced columns
+    row["table_name"] = Value(table_name);
+    row["index_name"] = Value(index_name);
+    row["index_type"] = Value(index_type);
+    row["is_unique"] = Value(is_unique);
+
+    // insertion
+
+    try
+    {
+        for (const auto &column_name : *statement->indexColumns)
+        {
+            row["seq_in_index"] = Value(seq_in_index);
+            row["column_name"] = Value(column_name);
+            index_handles.push_back(SQLExec::indices->insert(&row));
+            seq_in_index++;
+        }
+
+        DbIndex *index = &indices->get_index(table_name, index_name);
+        index->create();
+    }
+    catch (DbRelationError &exc)
+    {
+        for (Handle handle : index_handles)
+        {
+            indices->del(handle);
+        }
+        throw exc;
+    }
+
+    return new QueryResult("created index " + index_name);
 }
 
 // DROP ...
@@ -251,9 +328,13 @@ QueryResult *SQLExec::show_tables()
     {
         ValueDict *row = tables->project(handle, column_names);
         Identifier table_name = row->at("table_name").s;
-        if (table_name != Tables::TABLE_NAME && table_name != Columns::TABLE_NAME)
+        if (table_name != Tables::TABLE_NAME && table_name != Columns::TABLE_NAME && table_name != Indices::TABLE_NAME)
         {
             rows->push_back(row);
+        }
+        else
+        {
+            delete row;
         }
     }
     ColumnAttributes *column_attributes = new ColumnAttributes();
@@ -296,10 +377,12 @@ QueryResult *SQLExec::show_columns(const ShowStatement *statement)
     }
 }
 
-QueryResult *SQLExec::show_index(const ShowStatement *statement) {
-     return new QueryResult("show index not implemented"); // FIXME
+QueryResult *SQLExec::show_index(const ShowStatement *statement)
+{
+    return new QueryResult("show index not implemented"); // FIXME
 }
 
-QueryResult *SQLExec::drop_index(const DropStatement *statement) {
-    return new QueryResult("drop index not implemented");  // FIXME
+QueryResult *SQLExec::drop_index(const DropStatement *statement)
+{
+    return new QueryResult("drop index not implemented"); // FIXME
 }

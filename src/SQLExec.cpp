@@ -70,13 +70,13 @@ QueryResult *SQLExec::execute(const SQLStatement *statement)
 {
     if (tables == nullptr)
     {
-        initialize_schema_tables();
+        // initialize_schema_tables();
         tables = new Tables();
     }
 
     if (SQLExec::indices == nullptr)
     {
-        SQLExec::indices = new Indices();
+        indices = new Indices();
     }
 
     try
@@ -380,7 +380,7 @@ QueryResult *SQLExec::show_columns(const ShowStatement *statement)
 }
 
 QueryResult *SQLExec::show_index(const ShowStatement *statement) {
-    //underlying table
+    // SHOW INDEX FROM <table_name>
     Identifier table_name = statement->tableName;
 
     ColumnNames *column_names = new ColumnNames();

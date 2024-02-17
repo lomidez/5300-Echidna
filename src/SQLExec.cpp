@@ -148,45 +148,38 @@ QueryResult *SQLExec::create_table(const CreateStatement *statement)
     ValueDict row;
     row["table_name"] = table_name;
     Handle table_handle;
-    string message = "created " + table_name;
+    table_handle = tables->insert(&row);
+    Handles column_handles;
+    DbRelation &table = tables->get_table(table_name);
+    DbRelation &col_table = tables->get_table(Columns::TABLE_NAME);
     try
     {
-        table_handle = tables->insert(&row);
-        DbRelation *table = &tables->get_table(table_name);
-        DbRelation &col_table = tables->get_table(Columns::TABLE_NAME);
-
-        Handles column_handles;
-        try
+        for (uint i = 0; i < column_names.size(); i++)
         {
-            for (uint i = 0; i < column_names.size(); i++)
-            {
-                row["column_name"] = column_names[i];
-                row["data_type"] = Value(column_attr[i].get_data_type() == ColumnAttribute::INT ? "INT" : "TEXT");
-                Handle curr_col_handle = col_table.insert(&row);
-                column_handles.push_back(curr_col_handle);
-            }
-            if (statement->ifNotExists)
-            {
-                table->create_if_not_exists();
-            }
-            else
-            {
-                table->create();
-            }
+            row["column_name"] = column_names[i];
+            row["data_type"] = Value(column_attr[i].get_data_type() == ColumnAttribute::INT ? "INT" : "TEXT");
+            Handle curr_col_handle = col_table.insert(&row);
+            column_handles.push_back(curr_col_handle);
         }
-        catch (DbRelationError &e)
+        if (statement->ifNotExists)
         {
-            tables->del(table_handle);
-            for (auto const &handle : column_handles)
-                col_table.del(handle);
-            throw;
+            table.create_if_not_exists();
         }
+        else
+        {
+            table.create();
+        }
+        // delete &table;
+        // delete &col_table;
     }
     catch (DbRelationError &e)
     {
-        message = string("Failed to create table: ") + e.what();
+        tables->del(table_handle);
+        for (auto const &handle : column_handles)
+            col_table.del(handle);
+        throw;
     }
-    return new QueryResult(message);
+    return new QueryResult("created " + table_name);
 }
 
 QueryResult *SQLExec::create_index(const CreateStatement *statement)
@@ -379,21 +372,23 @@ QueryResult *SQLExec::show_columns(const ShowStatement *statement)
     }
 }
 
-QueryResult *SQLExec::show_index(const ShowStatement *statement) {
+QueryResult *SQLExec::show_index(const ShowStatement *statement)
+{
     // SHOW INDEX FROM <table_name>
     Identifier table_name = statement->tableName;
 
     ColumnNames *column_names = new ColumnNames();
-    ColumnAttributes *column_attributes = new ColumnAttributes(); 
-    tables->get_columns(Indices::TABLE_NAME, *column_names, *column_attributes); //get the column names and attr from indices
+    ColumnAttributes *column_attributes = new ColumnAttributes();
+    tables->get_columns(Indices::TABLE_NAME, *column_names, *column_attributes); // get the column names and attr from indices
 
     ValueDicts *rows = new ValueDicts();
     ValueDict where;
-    where["table_name"] = Value(table_name); 
+    where["table_name"] = Value(table_name);
 
     Handles *index_handles = indices->select(&where); // select * from indices where table_name = <table_name>
 
-    for (Handle handle : *index_handles) {
+    for (Handle handle : *index_handles)
+    {
         rows->push_back(indices->project(handle));
     }
     string message = "successfully returned " + to_string(index_handles->size()) + " rows";

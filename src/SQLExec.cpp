@@ -207,7 +207,7 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement)
         auto it = std::find(table_column_names->begin(), table_column_names->end(), col_name);
         if (it == table_column_names->end())
         {
-            throw SQLExecError(string("Column ") + col_name + string(" doesn't exist in ") + table_name );
+            throw SQLExecError(string("Column ") + col_name + string(" doesn't exist in ") + table_name);
         }
     }
 
@@ -313,6 +313,8 @@ QueryResult *SQLExec::show(const ShowStatement *statement)
         return show_tables();
     case ShowStatement::kColumns:
         return show_columns(statement);
+    case ShowStatement::kIndex:
+        return show_index(statement);
     default:
         throw SQLExecError(string("Operation Not Allowed"));
     }
@@ -377,9 +379,26 @@ QueryResult *SQLExec::show_columns(const ShowStatement *statement)
     }
 }
 
-QueryResult *SQLExec::show_index(const ShowStatement *statement)
-{
-    return new QueryResult("show index not implemented"); // FIXME
+QueryResult *SQLExec::show_index(const ShowStatement *statement) {
+    //underlying table
+    Identifier table_name = statement->tableName;
+
+    ColumnNames *column_names = new ColumnNames();
+    ColumnAttributes *column_attributes = new ColumnAttributes(); 
+    tables->get_columns(Indices::TABLE_NAME, *column_names, *column_attributes); //get the column names and attr from indices
+
+    ValueDicts *rows = new ValueDicts();
+    ValueDict where;
+    where["table_name"] = Value(table_name); 
+
+    Handles *index_handles = indices->select(&where); // select * from indices where table_name = <table_name>
+
+    for (Handle handle : *index_handles) {
+        rows->push_back(indices->project(handle));
+    }
+    string message = "successfully returned " + to_string(index_handles->size()) + " rows";
+    delete index_handles;
+    return new QueryResult(column_names, column_attributes, rows, message);
 }
 
 QueryResult *SQLExec::drop_index(const DropStatement *statement)

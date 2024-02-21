@@ -240,64 +240,6 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement)
     return new QueryResult("created index " + index_name);
 }
 
-// DROP ...
-QueryResult *SQLExec::drop(const DropStatement *statement)
-{
-    if (statement->type != DropStatement::kTable)
-    {
-        throw SQLExecError("unrecognized DROP type");
-    }
-
-    // Get table name and check if it's a schema table
-    Identifier table_name = statement->name;
-    if (table_name == Tables::TABLE_NAME || table_name == Columns::TABLE_NAME)
-    {
-        throw SQLExecError("Cannot drop a schema table!");
-    }
-
-    // Delete entries from _columns
-    ValueDict where = {{"table_name", Value(table_name)}};
-    DbRelation &columns = tables->get_table(Columns::TABLE_NAME);
-    Handles *rows = columns.select(&where);
-    try
-    {
-        for (Handle &row : *rows)
-        {
-            columns.del(row);
-        }
-        delete rows;
-
-        // Drop the actual table
-        DbRelation &table = tables->get_table(table_name);
-        table.drop();
-
-        // Remove entry from _tables
-        rows = tables->select(&where);
-        tables->del(*rows->begin());
-        delete rows;
-
-        return new QueryResult(string("dropped ") + table_name);
-    }
-    catch (DbRelationError &e)
-    {
-        // Rollback changes if anything fails
-        for (Handle &row : *rows)
-        {
-            try
-            {
-                ValueDict *rowData = columns.project(row, static_cast<const ColumnNames *>(nullptr));
-                columns.insert(rowData); // Undo deletion from _columns
-                delete rowData;          // Free the allocated memory
-            }
-            catch (DbRelationError &)
-            {
-            }
-        }
-        delete rows;
-        throw; // Re-throw the original error
-    }
-}
-
 QueryResult *SQLExec::show(const ShowStatement *statement)
 {
     switch (statement->type)
@@ -396,7 +338,112 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement)
     return new QueryResult(column_names, column_attributes, rows, message);
 }
 
+// DROP ...
+QueryResult *SQLExec::drop(const DropStatement* statement) {
+    switch (statement->type) {
+        case DropStatement::kTable:
+            return drop_table(statement);
+        case DropStatement::kIndex:
+            return drop_index(statement);
+        default:
+            throw SQLExecError("DROP type not implemented");
+    }
+}
+
+QueryResult *SQLExec::drop_table(const DropStatement *statement)
+{
+    if (statement->type != DropStatement::kTable)
+    {
+        throw SQLExecError("unrecognized DROP type");
+    }
+
+    // Get table name and check if it's a schema table
+    Identifier table_name = statement->name;
+    if (table_name == Tables::TABLE_NAME || table_name == Columns::TABLE_NAME)
+    {
+        throw SQLExecError("Cannot drop a schema table!");
+    }
+
+    ValueDict where = {{"table_name", Value(table_name)}};
+    DbRelation &columns = tables->get_table(Columns::TABLE_NAME);
+
+     // before dropping the table, drop each index on the table
+    Handles* selected = SQLExec::indices->select(&where);
+    for (Handle& row : *selected)
+        SQLExec::indices->del(row);
+    delete selected;
+
+    // Delete entries from _columns
+    Handles *rows = columns.select(&where);
+    try
+    {
+        for (Handle &row : *rows)
+        {
+            columns.del(row);
+        }
+        delete rows;
+
+        // Drop the actual table
+        DbRelation &table = tables->get_table(table_name);
+        table.drop();
+
+        // Remove entry from _tables
+        rows = tables->select(&where);
+        tables->del(*rows->begin());
+        delete rows;
+
+        return new QueryResult(string("dropped ") + table_name);
+    }
+    catch (DbRelationError &e)
+    {
+        // Rollback changes if anything fails
+        for (Handle &row : *rows)
+        {
+            try
+            {
+                ValueDict *rowData = columns.project(row, static_cast<const ColumnNames *>(nullptr));
+                columns.insert(rowData); // Undo deletion from _columns
+                delete rowData;          // Free the allocated memory
+            }
+            catch (DbRelationError &)
+            {
+            }
+        }
+        delete rows;
+        throw; // Re-throw the original error
+    }
+}
+
 QueryResult *SQLExec::drop_index(const DropStatement *statement)
 {
-    return new QueryResult("drop index not implemented"); // FIXME
+    Identifier table_name = statement->name;
+    Identifier index_name = statement->indexName;
+
+    // Validate input
+    if (table_name.empty() || index_name.empty()) {
+        throw SQLExecError("Missing table or index name for DROP INDEX");
+    }
+
+    try {
+        // Drop the actual index
+        DbIndex *index = &indices->get_index(table_name, index_name);
+        index->drop();
+
+        // Remove entry from _indices
+        ValueDict where = {{"table_name", Value(table_name)}, {"index_name", Value(index_name)}};
+        Handles *index_handles = indices->select(&where);
+        if (index_handles->empty()) {
+            throw SQLExecError("Index not found");
+        }
+
+        // Remove entry from _indices
+        for (Handle &handle : *index_handles) {
+            indices->del(handle);
+        }
+        delete index_handles;
+
+        return new QueryResult(string("dropped index ") + index_name);
+    } catch (DbRelationError &e) {
+        throw SQLExecError(string("DbRelationError: ") + e.what());
+    }
 }

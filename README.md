@@ -4,6 +4,7 @@ Student DB Relation Manager project for CPSC5300 at Seattle U, Winter 2024
 ## Table of Contents
 
 - [Installation](#installation)
+- [Dependencies](#dependencies)
 - [Usage](#usage)
   - [Interacting with SQL](#interacting-with-sql)
   - [Testing Heap Storage Functionality](#testing-heap-storage-functionality)
@@ -26,7 +27,14 @@ Student DB Relation Manager project for CPSC5300 at Seattle U, Winter 2024
     ```bash
     make
     ```
-    
+
+## Dependencies
+
+This project depends on the following:
+
+- **Berkeley DB**: For database storage and management. [Berkeley DB](https://docs.oracle.com/cd/E17076_05/html/api_reference/CXX/frame_main.html) 
+- **SQLParser**: For parsing SQL queries. [SQLParser](https://github.com/klundeen/sql-parser/tree/cpsc4300) 
+
 ## Usage
 
 Ensure that the Berkeley DB environment is set up by providing the path as a command-line argument when running the executable:

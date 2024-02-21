@@ -32,12 +32,17 @@ Student DB Relation Manager project for CPSC5300 at Seattle U, Winter 2024
 Ensure that the Berkeley DB environment is set up by providing the path as a command-line argument when running the executable:
 
 ```bash
-./main <dbenvpath>
+./sql5300 <dbenvpath>
 ```
 Replace <dbenvpath> with the path to the BerkeleyDB database environment. For example, if you are working on cs1 server:
 
 ```bash
-./main ~/cpsc5300/data
+./sql5300 ~/cpsc5300/data
+```
+
+To use Valgrind for detecting memory leaks and errors, run:
+```sh
+$ valgrind --leak-check=full --suppressions=valgrind.supp ./sql5300 ~/cpsc5300/data
 ```
 
 ### Interacting with SQL
@@ -77,17 +82,9 @@ This will remove the main executable and object files.
 │   LICENSE
 │   Makefile
 │   README.md
-│
+│   valgrind.supp
 └───src
-    │   main.cpp
-    │   SQLprinting.cpp
-    |   heap_storage.cpp
-    │   SQLprinting.h
-    │   storage_engine.h
-    │   heap_storage.h
 ```
 
-
-
 # Authors
-Kevin Lundeen, Lisa Lomidze
+Kevin Lundeen, Lisa Lomidze, Noha Nomier, Dhruv Patel

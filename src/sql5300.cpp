@@ -78,8 +78,6 @@ int main(int argc, char *argv[]) {
             delete parse;
             continue;
         }
-
-
         // execute the statement
         for (uint i = 0; i < parse->size(); ++i) {
             const SQLStatement *statement = parse->getStatement(i);

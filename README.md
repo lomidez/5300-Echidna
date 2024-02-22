@@ -10,6 +10,7 @@ Student DB Relation Manager project for CPSC5300 at Seattle U, Winter 2024
   - [Testing Heap Storage Functionality](#testing-heap-storage-functionality)
 - [Project Structure](#project-structure)
 - [Clean Up](#clean-up)
+- [Handoff Video](#handoff)
 - [Authors](#authors)
 - [Acknowledgments](#acknowledgments)
 
@@ -94,6 +95,9 @@ This will remove the main executable and object files.
 └───include
 └───src
 ```
+## Handoff Video
+
+Check the handoff video in this [link](https://redhawks-my.sharepoint.com/:v:/g/personal/nnomier_seattleu_edu/EYsin9XkslNPldBxdu47WZwBFRtJUJXEgHBbdjnVAEgNbg?nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D&e=ptoMeY)
 
 # Authors
 Kevin Lundeen, Lisa Lomidze, Noha Nomier, Dhruv Patel

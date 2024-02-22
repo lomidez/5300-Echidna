@@ -437,7 +437,7 @@ QueryResult *SQLExec::drop_table(const DropStatement *statement)
 
     // Get table name and check if it's a schema table
     Identifier table_name = statement->name;
-    if (table_name == Tables::TABLE_NAME || table_name == Columns::TABLE_NAME)
+    if (table_name == Tables::TABLE_NAME || table_name == Columns::TABLE_NAME || table_name == Indices::TABLE_NAME)
     {
         throw SQLExecError("Cannot drop a schema table!");
     }

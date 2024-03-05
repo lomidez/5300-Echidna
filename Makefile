@@ -1,35 +1,35 @@
-CCFLAGS     = -std=c++11 -Wall -Wno-c++11-compat -DHAVE_CXX_STDHEADERS -D_GNU_SOURCE -D_REENTRANT -O3 -c -ggdb
-COURSE      = /usr/local/db6
-INCLUDE_DIR = $(COURSE)/include
-LIB_DIR     = $(COURSE)/lib
+# Makefile, Kevin Lundeen, Seattle University, CPSC5300, Winter Quarter 2024
+CXX      ?= g++
+CPPFLAGS  = -I/usr/local/db6/include -I$(INC_DIR) #-Wall -Wextra -Wpedantic
+CXXFLAGS  = -DHAVE_CXX_STDHEADERS -D_GNU_SOURCE -D_REENTRANT -g -std=c++17
+LDFLAGS  += -L/usr/local/db6/lib
+LDLIBS    = -ldb_cxx -lsqlparser
 
-# Paths for source files located in src/ directory
-OBJS        = src/sql5300.o src/SlottedPage.o src/HeapFile.o src/HeapTable.o src/ParseTreeToString.o src/SQLExec.o src/schema_tables.o src/storage_engine.o
+SRC_DIR  := src
+INC_DIR  := include
+OBJ_DIR  := obj
 
-# Executable name 
-EXEC        = sql5300
+# following is a list of all the compiled object files needed to build the sql5300 executable
+SRCS := $(wildcard $(SRC_DIR)/*.cpp)
+HEADERS := $(wildcard $(INC_DIR)/*.h)
+OBJS := $(subst $(SRC_DIR),$(OBJ_DIR),$(SRCS:.cpp=.o))
+
+.PHONY: all
+all: sql5300
 
 # Rule for linking to create the executable
-$(EXEC): $(OBJS)
-	g++ -L$(LIB_DIR) -o $@ $(OBJS) -ldb_cxx -lsqlparser
+# Note that this is the default target since it is the first non-generic one in the Makefile: $ make
+sql5300: $(OBJS)
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-# Header file dependencies
-HEAP_STORAGE_H = include/heap_storage.h include/SlottedPage.h include/HeapFile.h include/HeapTable.h include/storage_engine.h
-SCHEMA_TABLES_H = include/schema_tables.h $(HEAP_STORAGE_H)
-SQLEXEC_H = include/SQLExec.h $(SCHEMA_TABLES_H)
-src/ParseTreeToString.o : include/ParseTreeToString.h
-src/SQLExec.o : $(SQLEXEC_H)
-src/SlottedPage.o : include/SlottedPage.h
-src/HeapFile.o : include/HeapFile.h include/SlottedPage.h
-src/HeapTable.o : $(HEAP_STORAGE_H)
-src/schema_tables.o : $(SCHEMA_TABLES_H) include/ParseTreeToString.h
-src/sql5300.o : $(SQLEXEC_H) include/ParseTreeToString.h
-src/storage_engine.o : include/storage_engine.h
+# General rules for compilation
+# Just assume that every .cpp file depends on every header and the Makefile
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(HEADERS) Makefile
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
-# General rule for compilation with source files in src/ and include files in include/
-%.o: %.cpp
-	g++ -I$(INCLUDE_DIR) -I./include $(CCFLAGS) -o "$@" "$<"
-
-# Rule for cleaning all non-source files
+# Rule for removing all non-source files (so they can get rebuilt from scratch)
+# Note that since it is not the first target, you have to invoke it explicitly: $ make clean
+.PHONY: clean
 clean:
-	rm -f $(EXEC) $(OBJS)
+	$(RM) sql5300 $(OBJ_DIR)/*.o
+
